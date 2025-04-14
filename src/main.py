@@ -1,12 +1,22 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
+import numpy as np
+from implicit.als import AlternatingLeastSquares
+import joblib
+
+course_names = ['AI_Basics', 'Algorithms_Advanced', 'Algorithms_Basics',
+       'Cloud_Computing_Advanced', 'Cloud_Computing_Basics',
+       'Cyber_Security_Advanced', 'Cyber_Security_Basics',
+       'Data_Science_Basics', 'Data_Structures_Advanced',
+       'Data_Structures_Basics', 'Databases_Advanced', 'Databases_Basics',
+       'Machine_Learning_Advanced', 'Machine_Learning_Basics',
+       'Mobile_Development_Advanced', 'Mobile_Development_Basics',
+       'Python_Advanced', 'Python_Intro', 'Software_Engineering_Advanced',
+       'Software_Engineering_Basics', 'Web_Development_Advanced',
+       'Web_Development_Basics']
 
 app = FastAPI()
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: str = None):
-    return {"item_id": item_id, "q": q}
 
 class StudentSchema(BaseModel):
     video_view_count: int
@@ -15,35 +25,89 @@ class StudentSchema(BaseModel):
     highest_education: str
     previous_assessment_scores: List[float]
 
-# --- Database Module (Placeholder) ---
 class Database:
     def __init__(self):
         pass
 
     def query(self, sql):
         print(f"Executing SQL query: {sql}")
-        return []  # Dummy return
+        return []
 
 db = Database()
 
-class PySparkModel:
+class NBAData(BaseModel):
+    dataplus:int
+    dualpane:int
+    externalquiz:int
+    folder:int
+    forumng:int
+    glossary:int
+    homepage:int
+    htmlactivity:int
+    oucollaborate:int
+    oucontent:int
+    ouelluminate:int
+    ouwiki:int
+    page:int
+    questionnaire:int
+    quiz:int
+    repeatactivity:int
+    resource:int
+    sharedsubpage:int
+    subpage:int
+    url:int
+
+class NBAModel:
     def __init__(self):
+        self.model = joblib.load('models/nba_rf_model.joblib')
         pass
 
-    def train(self, data):
-        print("Training PySpark model with data:", data)
+    def next_best_action(self, data: NBAData):
+        
+        features = np.array([[getattr(data,col)  for col in self.model.feature_names_in_]])
+        
+        prob = self.model.predict_proba(features)[0]
+        base_prob = prob[1]
 
-class TensorFlowModel:
+        improvements = []
+        for feature in self.model.feature_names_in_:
+            modified = data.copy()
+            setattr(modified,feature, getattr(modified, feature) + 10)
+            features = np.array([[getattr(modified,col) for col in self.model.feature_names_in_]])
+            new_prob = self.model.predict_proba(features)[0][1]
+            delta = new_prob - base_prob
+            improvements.append((feature, round(new_prob, 4), round(delta, 4)))
+
+        # Sort by most positive impact
+        sorted_features = sorted(improvements, key=lambda x: -x[2])
+        top_recommendations = [{feat: delta} for feat, prob, delta in sorted_features if delta > 0]
+
+        return {
+            "original_score_prob": round(base_prob, 4),
+            "top_resource_recommendations": top_recommendations or ["No impactful recommendations"]
+        }
+
+nba_model = NBAModel()
+
+class CourseRecommender:
     def __init__(self):
+        self.model = AlternatingLeastSquares().load('models/model.npz')
+        self.user_ratings = joblib.load('models/user_ratings.joblib')
         pass
 
-    def train(self, data):
-        print("Training TensorFlow model with data:", data)
+    def recommend(self, userid:int):
+        if (userid >= self.user_ratings.shape[0]):
+            return course_names[0:3]
+        ids, scores = self.model.recommend(userid, self.user_ratings[userid], N=10, filter_already_liked_items=False)
+        recommended = [{course_names[i]: i in self.user_ratings[userid].indices} for i in ids]
+        return recommended
+
+
+courseRecommender = CourseRecommender()
 
 class MLModel:
     def __init__(self):
-        self.pyspark_model = PySparkModel()
-        self.tensorflow_model = TensorFlowModel()
+        self.tensorflow_model = None
 
     def predict(self, final_result_probability):
         # Placeholder prediction
@@ -75,19 +139,24 @@ trends_analyzer = AssessmentScoreTrends()
 analytics_engine = PredictiveAnalyticsEngine()
 
 # --- API Endpoints ---
-@app.post('/predict')
-def predict_performance():
+@app.post('/next')
+def predict_next_action(data: NBAData):
     """
     Predicts student performance based on provided data.
     """
     try:
-        student_data = StudentSchema(**request.get_json())
-        # Dummy probability for now
-        final_result_probability = 0.7
-        prediction = ml_model.predict(final_result_probability)
-        return jsonify(prediction)
+        return nba_model.next_best_action(data)
+        # return jsonify(prediction)
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return e.__str__()
+
+@app.get("/recommend")
+def recommend_course(userid: int):
+    try :
+        return courseRecommender.recommend(userid)
+    except Exception as e:
+        return "Error occured" + e.__str__()
+
 
 @app.get("/")
 def dummy_root():

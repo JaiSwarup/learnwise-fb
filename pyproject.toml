@@ -10,6 +10,10 @@ python = "^3.11"
 pydantic = "^2.11.3"
 fastapi = "^0.115.12"
 uvicorn = "^0.34.0"
+joblib = "^1.4.2"
+scikit-learn = "1.2.2"
+numpy = "1.24"
+implicit = "^0.7.2"
 
 [tool.poetry.scripts]
 app = 'src.main:main'
