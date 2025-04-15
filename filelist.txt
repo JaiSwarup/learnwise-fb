@@ -1,0 +1,13 @@
+Dockerfile
+filelist.txt
+.gitignore
+.idx/dev.nix
+.vscode/settings.json
+README.md
+devserver.sh
+models/model.npz
+models/nba_rf_model.joblib
+models/user_ratings.joblib
+poetry.lock
+pyproject.toml
+src/main.py

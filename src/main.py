@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
+from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from implicit.als import AlternatingLeastSquares
 import joblib
+import pickle
 
 course_names = ['AI_Basics', 'Algorithms_Advanced', 'Algorithms_Basics',
        'Cloud_Computing_Advanced', 'Cloud_Computing_Basics',
@@ -16,7 +18,17 @@ course_names = ['AI_Basics', 'Algorithms_Advanced', 'Algorithms_Basics',
        'Software_Engineering_Basics', 'Web_Development_Advanced',
        'Web_Development_Basics']
 
+origins = [
+    "*",
+]
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class StudentSchema(BaseModel):
     video_view_count: int
@@ -59,7 +71,8 @@ class NBAData(BaseModel):
 
 class NBAModel:
     def __init__(self):
-        self.model = joblib.load('models/nba_rf_model.joblib')
+        with open("models/nba_model.pkl", "rb") as f:
+            self.model = pickle.load(f)
         pass
 
     def next_best_action(self, data: NBAData):
