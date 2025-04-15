@@ -2,10 +2,13 @@ FROM python:3.11-slim-bullseye
 
 WORKDIR /app
 
-COPY poetry.lock pyproject.toml ./
-RUN pip install --no-cache-dir poetry && poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi
+RUN pip install poetry
 
-COPY src ./src
+COPY poetry.lock pyproject.toml ./
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-root
+
+COPY . .
 
 EXPOSE $PORT
 
