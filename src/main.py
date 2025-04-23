@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List
+from typing import List,Literal
 from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
+import pandas as pd
 from implicit.als import AlternatingLeastSquares
 import joblib
 import pickle
@@ -48,37 +49,28 @@ class Database:
 db = Database()
 
 class NBAData(BaseModel):
-    dataplus:int
-    dualpane:int
-    externalquiz:int
-    folder:int
-    forumng:int
-    glossary:int
-    homepage:int
-    htmlactivity:int
-    oucollaborate:int
-    oucontent:int
-    ouelluminate:int
-    ouwiki:int
-    page:int
-    questionnaire:int
-    quiz:int
-    repeatactivity:int
-    resource:int
-    sharedsubpage:int
-    subpage:int
-    url:int
+    label: Literal['pass','distinction']
+    homepage: int
+    resource: int
+    quiz: int
+    oucontent: int
+    subpage: int
+    forumng: int
+    url: int
+    ouwiki: int
+    oucollaborate: int
+    page: int
+    glossary: int
+    externalquiz: int
 
 class NBAModel:
     def __init__(self):
-        with open("models/nba_model.pkl", "rb") as f:
-            self.model = pickle.load(f)
+        self.model = joblib.load('models/nba_rf_model.joblib')
         pass
 
     def next_best_action(self, data: NBAData):
         
-        features = np.array([[getattr(data,col)  for col in self.model.feature_names_in_]])
-        
+        features = pd.DataFrame([{col : getattr(data,col)  for col in self.model.feature_names_in_}])
         prob = self.model.predict_proba(features)[0]
         base_prob = prob[1]
 
@@ -111,8 +103,14 @@ class CourseRecommender:
     def recommend(self, userid:int):
         if (userid >= self.user_ratings.shape[0]):
             return course_names[0:3]
-        ids, scores = self.model.recommend(userid, self.user_ratings[userid], N=10, filter_already_liked_items=False)
-        recommended = [{course_names[i]: i in self.user_ratings[userid].indices} for i in ids]
+        ids, scores = self.model.recommend(userid, self.user_ratings[userid], N=5, filter_already_liked_items=False)
+        recommended = []
+        for i in ids: 
+            recommended.append({
+                "id": i.item(),
+                "name": course_names[i],
+                "ongoing": i.item() in self.user_ratings[userid].indices
+            })
         return recommended
 
 
