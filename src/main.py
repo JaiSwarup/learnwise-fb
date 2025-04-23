@@ -69,27 +69,27 @@ class NBAModel:
         pass
 
     def next_best_action(self, data: NBAData):
-        
         features = pd.DataFrame([{col : getattr(data,col)  for col in self.model.feature_names_in_}])
         prob = self.model.predict_proba(features)[0]
-        base_prob = prob[1]
+        goal = 1 if getattr(data, "label") == "pass" else 2
+        base_prob = prob[goal]
 
         improvements = []
         for feature in self.model.feature_names_in_:
             modified = data.copy()
-            setattr(modified,feature, getattr(modified, feature) + 10)
-            features = np.array([[getattr(modified,col) for col in self.model.feature_names_in_]])
-            new_prob = self.model.predict_proba(features)[0][1]
+            setattr(modified,feature, getattr(modified, feature) + goal * 30)
+            features = pd.DataFrame([{col : getattr(modified,col)  for col in self.model.feature_names_in_}])
+            new_prob = self.model.predict_proba(features)[0][goal]
             delta = new_prob - base_prob
             improvements.append((feature, round(new_prob, 4), round(delta, 4)))
 
         # Sort by most positive impact
         sorted_features = sorted(improvements, key=lambda x: -x[2])
-        top_recommendations = [{feat: delta} for feat, prob, delta in sorted_features if delta > 0]
+        recommendations = [{"name": feat, "change": delta} for feat, prob, delta in sorted_features if delta > 0]
 
         return {
             "original_score_prob": round(base_prob, 4),
-            "top_resource_recommendations": top_recommendations or ["No impactful recommendations"]
+            "top_resource_recommendations": recommendations or []
         }
 
 nba_model = NBAModel()
